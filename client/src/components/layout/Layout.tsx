@@ -9,7 +9,9 @@ import {
   FileText,
   Menu,
   X,
+  LogOut,
 } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -23,6 +25,11 @@ const navigation = [
 export default function Layout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   return (
     <div className="min-h-screen bg-[#F6FAFD]">
@@ -46,6 +53,16 @@ export default function Layout() {
                 </p>
               </div>
             </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-[#B3CFE5]">{user?.email}</span>
+            <button
+              onClick={handleSignOut}
+              className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+            >
+              <LogOut size={18} />
+              <span className="text-sm">Sign Out</span>
+            </button>
           </div>
         </div>
       </div>

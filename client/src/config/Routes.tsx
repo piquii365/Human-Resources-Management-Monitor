@@ -5,26 +5,22 @@ import Evaluations from "../pages/Evaluations";
 import Reports from "../pages/Reports";
 import Recruitment from "../pages/Recruitment";
 import Training from "../pages/Training";
+import Auth from "../pages/Auth";
 import Layout from "../components/layout/Layout";
-
-/**
- * 
- * <Layout>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/employees" element={<Employees />} />
-          <Route path="/evaluations" element={<Evaluations />} />
-          <Route path="/recruitment" element={<Recruitment />} />
-          <Route path="/training" element={<Training />} />
-          <Route path="/reports" element={<Reports />} />
-        </Routes>
-      </Layout>
- */
+import ProtectedRoute from "../components/ProtectedRoute";
 
 export const router = createBrowserRouter([
   {
+    path: "/auth",
+    element: <Auth />,
+  },
+  {
     path: "/",
-    element: <Layout />,
+    element: (
+      <ProtectedRoute>
+        <Layout />
+      </ProtectedRoute>
+    ),
     children: [
       { index: true, element: <Dashboard /> },
       { path: "/employees", element: <Employees /> },
