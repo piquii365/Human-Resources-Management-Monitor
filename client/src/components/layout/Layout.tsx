@@ -67,11 +67,11 @@ export default function Layout() {
         </div>
       </div>
 
-      <div className="flex pt-[72px]">
+      <div className="flex min-h-[100dvh]">
         <aside
           className={`
-            fixed lg:static inset-y-0 left-0 w-64 bg-white border-r border-[#B3CFE5]
-            transform transition-transform duration-300 ease-in-out z-30 pt-[72px] lg:pt-0
+            fixed top-[72px] left-0 bottom-0 w-64 bg-white border-r border-[#B3CFE5]
+            transform transition-transform duration-300 ease-in-out z-30
             ${
               sidebarOpen
                 ? "translate-x-0"
@@ -107,14 +107,18 @@ export default function Layout() {
 
         {sidebarOpen && (
           <div
-            className="fixed inset-0 bg-black/20 z-20 lg:hidden pt-[72px]"
+            className="fixed inset-0 bg-black/20 z-20 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
-        <main className="flex-1 p-6 lg:p-8">
+        <main className="flex-1 p-6 lg:p-8 mt-[72px] lg:mt-[72px] lg:ml-64 overflow-auto h-[calc(100vh-72px)]">
           <div className="max-w-7xl mx-auto">
             <Outlet />
+
+            <footer className="mt-8 text-center text-sm text-gray-500 py-6">
+              © {new Date().getFullYear()} All rights reserved
+            </footer>
           </div>
         </main>
       </div>
