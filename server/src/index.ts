@@ -42,10 +42,10 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(morgan("dev"));
-app.use("/api/v1", generalLimiter, routes());
+app.use("/api", generalLimiter, routes());
 
 const server = http.createServer(app);
 
-server.listen(3000, () => {
-  console.log("Server is running on http://localhost:3500");
+server.listen(3800, () => {
+  console.log("Server is running on http://localhost:3800");
 });

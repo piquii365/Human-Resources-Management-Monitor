@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
 import type { Recruitment, Application, Department } from "../lib/types";
+import {
+  fetchRecruitments,
+  fetchDepartments,
+  fetchAllApplications,
+} from "../api";
 import { Plus, Search, Briefcase, Calendar, Users } from "lucide-react";
 
 export default function RecruitmentPage() {
@@ -17,19 +21,20 @@ export default function RecruitmentPage() {
 
   const fetchData = async () => {
     try {
+      // Fetch recruitments, all applications and departments
       const [recruitmentsRes, applicationsRes, departmentsRes] =
         await Promise.all([
-          supabase
-            .from("recruitment")
-            .select("*")
-            .order("posting_date", { ascending: false }),
-          supabase.from("applications").select("*"),
-          supabase.from("departments").select("*"),
+          fetchRecruitments(),
+          fetchAllApplications(),
+          fetchDepartments(),
         ]);
 
-      if (recruitmentsRes.data) setRecruitments(recruitmentsRes.data);
-      if (applicationsRes.data) setApplications(applicationsRes.data);
-      if (departmentsRes.data) setDepartments(departmentsRes.data);
+      if (recruitmentsRes && recruitmentsRes.data)
+        setRecruitments(recruitmentsRes.data as Recruitment[]);
+      if (applicationsRes && applicationsRes.data)
+        setApplications(applicationsRes.data as Application[]);
+      if (departmentsRes && departmentsRes.data)
+        setDepartments(departmentsRes.data as Department[]);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {

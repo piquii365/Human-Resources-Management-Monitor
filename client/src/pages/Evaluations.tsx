@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
 import type { PerformanceEvaluation, Employee } from "../lib/types";
+import { fetchEvaluations, fetchEmployees } from "../api";
 import { Plus, Search, FileText, CheckCircle, Clock } from "lucide-react";
 
 export default function Evaluations() {
@@ -17,15 +17,14 @@ export default function Evaluations() {
   const fetchData = async () => {
     try {
       const [evaluationsRes, employeesRes] = await Promise.all([
-        supabase
-          .from("performance_evaluations")
-          .select("*")
-          .order("evaluation_date", { ascending: false }),
-        supabase.from("employees").select("*"),
+        fetchEvaluations(),
+        fetchEmployees(),
       ]);
 
-      if (evaluationsRes.data) setEvaluations(evaluationsRes.data);
-      if (employeesRes.data) setEmployees(employeesRes.data);
+      if (evaluationsRes && evaluationsRes.data)
+        setEvaluations(evaluationsRes.data as PerformanceEvaluation[]);
+      if (employeesRes && employeesRes.data)
+        setEmployees(employeesRes.data as Employee[]);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {

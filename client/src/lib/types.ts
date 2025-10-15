@@ -1,3 +1,16 @@
+export interface User {
+  name: string;
+  email: string;
+  uid: string;
+  displayPicture?: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  loading: boolean;
+}
+
 export interface Department {
   id: string;
   name: string;

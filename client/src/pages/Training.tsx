@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
 import type { TrainingProgram, TrainingEnrollment } from "../lib/types";
+import { fetchTrainingPrograms, fetchTrainingEnrollments } from "../api";
 import {
   Plus,
   Search,
@@ -24,15 +24,14 @@ export default function Training() {
   const fetchData = async () => {
     try {
       const [programsRes, enrollmentsRes] = await Promise.all([
-        supabase
-          .from("training_programs")
-          .select("*")
-          .order("start_date", { ascending: false }),
-        supabase.from("training_enrollments").select("*"),
+        fetchTrainingPrograms(),
+        fetchTrainingEnrollments(""),
       ]);
 
-      if (programsRes.data) setPrograms(programsRes.data);
-      if (enrollmentsRes.data) setEnrollments(enrollmentsRes.data);
+      if (programsRes && programsRes.data)
+        setPrograms(programsRes.data as TrainingProgram[]);
+      if (enrollmentsRes && enrollmentsRes.data)
+        setEnrollments(enrollmentsRes.data as TrainingEnrollment[]);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {

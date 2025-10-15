@@ -1,7 +1,15 @@
 import { useState } from "react";
-import { supabase } from "../lib/supabase";
 import { useNavigate } from "react-router-dom";
-import { Linkedin, Instagram, Facebook, Twitter, MessageCircle, Mail, Phone } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import {
+  Linkedin,
+  Instagram,
+  Facebook,
+  Twitter,
+  MessageCircle,
+  Mail,
+  Phone,
+} from "lucide-react";
 
 export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(true);
@@ -12,36 +20,45 @@ export default function Auth() {
     password: "",
   });
   const [error, setError] = useState("");
+  const extractErrorMessage = (err: unknown) => {
+    if (!err) return "An error occurred";
+    if (err instanceof Error) return err.message;
+    try {
+      return String(err);
+    } catch {
+      return "An error occurred";
+    }
+  };
   const navigate = useNavigate();
+  const { login, register, loginWithGoogle } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: {
-            data: {
-              full_name: formData.fullName,
-            },
-          },
-        });
-        if (error) throw error;
+        await register(formData.email, formData.password, formData.fullName);
         navigate("/");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password,
-        });
-        if (error) throw error;
+        await login(formData.email, formData.password);
         navigate("/");
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(extractErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogle = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      await loginWithGoogle();
+      navigate("/");
+    } catch (err: unknown) {
+      setError(extractErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -62,12 +79,32 @@ export default function Auth() {
           <div className="relative z-10">
             <div className="flex items-center space-x-3 mb-12">
               <div className="w-10 h-10 bg-white/30 backdrop-blur-sm rounded-lg flex items-center justify-center">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-white">
-                  <path d="M12 2L4 6V12C4 16.5 7.5 20.5 12 22C16.5 20.5 20 16.5 20 12V6L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M9 12L11 14L15 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className="text-white"
+                >
+                  <path
+                    d="M12 2L4 6V12C4 16.5 7.5 20.5 12 22C16.5 20.5 20 16.5 20 12V6L12 2Z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M9 12L11 14L15 10"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </div>
-              <span className="text-white text-xl font-semibold">HR Monitoring System</span>
+              <span className="text-white text-xl font-semibold">
+                HR Monitoring System
+              </span>
             </div>
 
             <div className="flex justify-center mb-8">
@@ -189,6 +226,22 @@ export default function Auth() {
                 {loading ? "Loading..." : isSignUp ? "Sign Up" : "Sign In"}
               </button>
 
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={handleGoogle}
+                  disabled={loading}
+                  className="w-full border border-gray-200 py-2 rounded-lg flex items-center justify-center space-x-3 hover:shadow"
+                >
+                  <img
+                    src="/google-logo.png"
+                    alt="google"
+                    className="w-5 h-5"
+                  />
+                  <span>Continue with Google</span>
+                </button>
+              </div>
+
               <div className="text-center">
                 <button
                   type="button"
@@ -202,29 +255,50 @@ export default function Auth() {
 
             <div className="mt-8 pt-6 border-t border-gray-200">
               <div className="flex justify-center space-x-4">
-                <a href="#" className="w-10 h-10 flex items-center justify-center bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow text-gray-600 hover:text-[#5A9FD4]">
+                <a
+                  href="#"
+                  className="w-10 h-10 flex items-center justify-center bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow text-gray-600 hover:text-[#5A9FD4]"
+                >
                   <Linkedin size={20} />
                 </a>
-                <a href="#" className="w-10 h-10 flex items-center justify-center bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow text-gray-600 hover:text-[#5A9FD4]">
+                <a
+                  href="#"
+                  className="w-10 h-10 flex items-center justify-center bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow text-gray-600 hover:text-[#5A9FD4]"
+                >
                   <Instagram size={20} />
                 </a>
-                <a href="#" className="w-10 h-10 flex items-center justify-center bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow text-gray-600 hover:text-[#5A9FD4]">
+                <a
+                  href="#"
+                  className="w-10 h-10 flex items-center justify-center bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow text-gray-600 hover:text-[#5A9FD4]"
+                >
                   <Facebook size={20} />
                 </a>
-                <a href="#" className="w-10 h-10 flex items-center justify-center bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow text-gray-600 hover:text-[#5A9FD4]">
+                <a
+                  href="#"
+                  className="w-10 h-10 flex items-center justify-center bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow text-gray-600 hover:text-[#5A9FD4]"
+                >
                   <Twitter size={20} />
                 </a>
-                <a href="#" className="w-10 h-10 flex items-center justify-center bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow text-gray-600 hover:text-[#5A9FD4]">
+                <a
+                  href="#"
+                  className="w-10 h-10 flex items-center justify-center bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow text-gray-600 hover:text-[#5A9FD4]"
+                >
                   <MessageCircle size={20} />
                 </a>
               </div>
 
               <div className="flex justify-center items-center space-x-6 mt-6 text-sm text-gray-600">
-                <a href="#" className="flex items-center space-x-2 hover:text-[#5A9FD4] transition-colors">
+                <a
+                  href="#"
+                  className="flex items-center space-x-2 hover:text-[#5A9FD4] transition-colors"
+                >
                   <Phone size={16} />
                   <span>959812**67</span>
                 </a>
-                <a href="#" className="flex items-center space-x-2 hover:text-[#5A9FD4] transition-colors">
+                <a
+                  href="#"
+                  className="flex items-center space-x-2 hover:text-[#5A9FD4] transition-colors"
+                >
                   <Mail size={16} />
                   <span>info@hrms.in</span>
                 </a>

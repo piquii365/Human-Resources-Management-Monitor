@@ -1,46 +1,203 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import type { User, Session } from "@supabase/supabase-js";
-import { supabase } from "../lib/supabase";
+import {
+  createContext,
+  useContext,
+  useReducer,
+  useEffect,
+  ReactNode,
+} from "react";
+import type { AuthState, User } from "../lib/types";
+import {
+  signInWithPopup,
+  GoogleAuthProvider,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  updateProfile,
+} from "firebase/auth";
+import { auth } from "../config/firebase-config";
 
-interface AuthContextType {
-  user: User | null;
-  session: Session | null;
-  loading: boolean;
-  signOut: () => Promise<void>;
+interface AuthContextType extends AuthState {
+  login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
+  register: (email: string, password: string, name?: string) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+type AuthAction =
+  | { type: "SET_USER"; payload: User }
+  | { type: "SET_LOADING"; payload: boolean }
+  | { type: "LOGOUT" };
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+const initialState: AuthState = {
+  user: null,
+  isAuthenticated: false,
+  loading: false,
+};
 
+function authReducer(state: AuthState, action: AuthAction): AuthState {
+  switch (action.type) {
+    case "SET_USER":
+      return {
+        ...state,
+        user: action.payload,
+        isAuthenticated: true,
+        loading: false,
+      };
+
+    case "SET_LOADING":
+      return { ...state, loading: action.payload };
+
+    case "LOGOUT":
+      return {
+        ...state,
+        user: null,
+        isAuthenticated: false,
+        loading: false,
+      };
+
+    default:
+      return state;
+  }
+}
+
+const AuthContext = createContext<AuthContextType | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [state, dispatch] = useReducer(authReducer, initialState);
+
+  // Check for existing session on mount
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        (async () => {
-          setSession(session);
-          setUser(session?.user ?? null);
-        })();
+    // subscribe to firebase auth state
+    const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        const currentUser: User = {
+          uid: fbUser.uid,
+          email: fbUser.email || "",
+          name: fbUser.displayName || "",
+          displayPicture: fbUser.photoURL || undefined,
+        };
+        sessionStorage.setItem("user", JSON.stringify(currentUser));
+        dispatch({ type: "SET_USER", payload: currentUser });
+      } else {
+        sessionStorage.removeItem("user");
+        dispatch({ type: "LOGOUT" });
       }
-    );
-
-    return () => subscription.unsubscribe();
+    });
+    return () => unsub();
   }, []);
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  // const login = async (email: string, password: string) => {
+  //   dispatch({ type: "SET_LOADING", payload: true });
+
+  //   // Simulate API call
+  //   await new Promise((resolve) => setTimeout(resolve, 1500));
+
+  //   sessionStorage.setItem("user", JSON.stringify(mockUser));
+  //   dispatch({ type: "SET_USER", payload: mockUser });
+  // };
+
+  const loginWithGoogle = async () => {
+    dispatch({ type: "SET_LOADING", payload: true });
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.addScope("profile");
+      provider.addScope("email");
+      const result = await signInWithPopup(auth, provider);
+      const fbUser = result.user;
+      const currentUser: User = {
+        uid: fbUser.uid,
+        email: fbUser.email || "",
+        name: fbUser.displayName || "",
+        displayPicture: fbUser.photoURL || undefined,
+      };
+      sessionStorage.setItem("user", JSON.stringify(currentUser));
+      dispatch({ type: "SET_USER", payload: currentUser });
+    } catch (err) {
+      console.error("Google sign-in error:", err);
+      throw err;
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
+  };
+
+  const login = async (email: string, password: string) => {
+    dispatch({ type: "SET_LOADING", payload: true });
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const fbUser = cred.user;
+      const currentUser: User = {
+        uid: fbUser.uid,
+        email: fbUser.email || "",
+        name: fbUser.displayName || "",
+        displayPicture: fbUser.photoURL || undefined,
+      };
+      sessionStorage.setItem("user", JSON.stringify(currentUser));
+      dispatch({ type: "SET_USER", payload: currentUser });
+    } catch (err: unknown) {
+      console.error("Login error:", err);
+      if (err instanceof Error) throw err;
+      throw new Error("Login failed");
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
+  };
+
+  const register = async (email: string, password: string, name?: string) => {
+    dispatch({ type: "SET_LOADING", payload: true });
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      const fbUser = cred.user;
+      if (name) {
+        try {
+          await updateProfile(fbUser, { displayName: name });
+        } catch (e) {
+          // non-fatal
+          console.warn("updateProfile failed:", e);
+        }
+      }
+
+      const currentUser: User = {
+        uid: fbUser.uid,
+        email: fbUser.email || "",
+        name: name || fbUser.displayName || "",
+        displayPicture: fbUser.photoURL || undefined,
+      };
+      sessionStorage.setItem("user", JSON.stringify(currentUser));
+      dispatch({ type: "SET_USER", payload: currentUser });
+    } catch (err: unknown) {
+      console.error("Register error:", err);
+      if (err instanceof Error) throw err;
+      throw new Error("Register failed");
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
+  };
+
+  const logout = async () => {
+    dispatch({ type: "SET_LOADING", payload: true });
+    try {
+      await signOut(auth);
+      sessionStorage.removeItem("user");
+      dispatch({ type: "LOGOUT" });
+    } catch (err) {
+      console.error("Logout error:", err);
+      throw err;
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut }}>
+    <AuthContext.Provider
+      value={{
+        ...state,
+        login,
+        loginWithGoogle,
+        register,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -48,7 +205,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
