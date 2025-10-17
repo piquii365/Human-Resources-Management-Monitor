@@ -14,12 +14,14 @@ import {
   signOut,
   onAuthStateChanged,
   updateProfile,
+  OAuthProvider,
 } from "firebase/auth";
 import { auth } from "../config/firebase-config";
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
+  loginWithMicrosoft: () => Promise<void>;
   register: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -121,6 +123,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loginWithMicrosoft = async () => {
+    dispatch({ type: "SET_LOADING", payload: true });
+    try {
+      const provider = new OAuthProvider("microsoft.com");
+      provider.addScope("User.Read");
+      const result = await signInWithPopup(auth, provider);
+      const fbUser = result.user;
+      const currentUser: User = {
+        uid: fbUser.uid,
+        email: fbUser.email || "",
+        name: fbUser.displayName || "",
+        displayPicture: fbUser.photoURL || undefined,
+      };
+      sessionStorage.setItem("user", JSON.stringify(currentUser));
+      dispatch({ type: "SET_USER", payload: currentUser });
+    } catch (err) {
+      console.error("Microsoft sign-in error:", err);
+      throw err;
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
+  };
+
   const login = async (email: string, password: string) => {
     dispatch({ type: "SET_LOADING", payload: true });
     try {
@@ -167,6 +192,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       dispatch({ type: "SET_USER", payload: currentUser });
     } catch (err: unknown) {
       console.error("Register error:", err);
+      // Provide a clearer message when Email/Password sign-in is not enabled in Firebase
+      const getErrorCode = (e: unknown): string | null => {
+        if (!e) return null;
+        // Firebase errors often have a 'code' string, otherwise use message
+        if (typeof e === "object" && e !== null) {
+          const maybe = e as { code?: unknown; message?: unknown };
+          if (typeof maybe.code === "string") return maybe.code;
+          if (typeof maybe.message === "string") return maybe.message;
+        }
+        return null;
+      };
+      const code = getErrorCode(err);
+      if (code === "auth/configuration-not-found") {
+        throw new Error(
+          "Email/Password sign-in is not enabled for this Firebase project. Enable it in the Firebase Console: Authentication → Sign-in method → Email/Password."
+        );
+      }
       if (err instanceof Error) throw err;
       throw new Error("Register failed");
     } finally {
@@ -194,6 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...state,
         login,
         loginWithGoogle,
+        loginWithMicrosoft,
         register,
         logout,
       }}
