@@ -3,7 +3,7 @@ import {
   useContext,
   useReducer,
   useEffect,
-  ReactNode,
+  type ReactNode,
 } from "react";
 import type { AuthState, User } from "../lib/types";
 import {

@@ -69,20 +69,20 @@ export const createEmployee = async (
   } = req.body;
   const connection = await conn.getConnection();
   try {
-    await connection.query("CALL sp_insert_employee(?,?,?,?,?,?,?,?,?,?,?,?)", [
+    await connection.query("CALL sp_insert_employee(?,?,?,?,?,?,?,?,?,?,?,?,?)", [
       id,
-      user_id,
+      user_id || null,
       employee_number,
       first_name,
       last_name,
       email,
-      phone,
-      department_id,
+      phone || null,
+      department_id || null,
       position,
       hire_date,
       employment_status,
       salary,
-      photo_url,
+      photo_url || null,
     ]);
     res.json({ success: true });
   } catch (err) {

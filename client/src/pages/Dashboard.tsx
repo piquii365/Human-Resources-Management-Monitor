@@ -6,7 +6,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [loading] = useState(false);
 
-  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+  const userName = user?.name || user?.email?.split('@')[0] || 'User';
 
   if (loading) {
     return (

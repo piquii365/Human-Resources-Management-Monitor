@@ -25,10 +25,10 @@ const navigation = [
 export default function Layout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user, logout } = useAuth();
 
   const handleSignOut = async () => {
-    await signOut();
+    await logout();
   };
 
   return (

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import type { Employee, Department } from "../lib/types";
-import { fetchEmployees, fetchDepartments } from "../api";
+import { fetchEmployees, fetchDepartments, createEmployeeApi } from "../api";
 import { Plus, Search, Edit, Trash2, Mail, Phone } from "lucide-react";
+import EmployeeModal, { type EmployeeFormData } from "../components/EmployeeModal";
+import { v4 as uuidv4 } from "uuid";
 
 export default function Employees() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -9,6 +11,7 @@ export default function Employees() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -59,6 +62,27 @@ export default function Employees() {
     return styles[status as keyof typeof styles] || styles.active;
   };
 
+  const handleAddEmployee = async (formData: EmployeeFormData) => {
+    const payload = {
+      id: uuidv4(),
+      user_id: null,
+      employee_number: formData.employee_number,
+      first_name: formData.first_name,
+      last_name: formData.last_name,
+      email: formData.email,
+      phone: formData.phone,
+      department_id: formData.department_id || null,
+      position: formData.position,
+      hire_date: formData.hire_date,
+      employment_status: formData.employment_status,
+      salary: parseFloat(formData.salary),
+      photo_url: null,
+    };
+
+    await createEmployeeApi(payload);
+    await fetchData();
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -76,7 +100,10 @@ export default function Employees() {
             Manage employee records and information
           </p>
         </div>
-        <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#0A1931] to-[#1A3D63] text-white rounded-xl hover:shadow-lg transition-all">
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#0A1931] to-[#1A3D63] text-white rounded-xl hover:shadow-lg transition-all"
+        >
           <Plus size={20} />
           Add Employee
         </button>
@@ -210,6 +237,13 @@ export default function Employees() {
           )}
         </div>
       </div>
+
+      <EmployeeModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleAddEmployee}
+        departments={departments}
+      />
     </div>
   );
 }

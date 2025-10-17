@@ -6,17 +6,17 @@ import {
   updateEmployee,
   deleteEmployee,
 } from "../controllers/employees.controller.ts";
-import { validateEmployee } from "../middleware/validation.middleware.ts";
+import { validateEmployee, handleValidationErrors } from "../middleware/validation.middleware.ts";
 
 export default (router: express.Router): express.Router => {
   router
     .route("/employees")
     .get(listEmployees)
-    .post(validateEmployee, createEmployee);
+    .post(validateEmployee, handleValidationErrors, createEmployee);
   router
     .route("/employees/:id")
     .get(getEmployee)
-    .put(validateEmployee, updateEmployee)
+    .put(validateEmployee, handleValidationErrors, updateEmployee)
     .delete(deleteEmployee);
   return router;
 };
