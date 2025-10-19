@@ -3,6 +3,8 @@ export interface User {
   email: string;
   uid: string;
   displayPicture?: string;
+  accessToken?: string;
+  role?: "admin" | "hr" | "employee";
 }
 
 export interface AuthState {

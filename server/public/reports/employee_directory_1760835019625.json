@@ -1,0 +1,35 @@
+[
+  {
+    "employee_number": "EMP-002",
+    "full_name": "Blessing Nyakabau",
+    "email": "bnyakabau@localgovt.co.zw",
+    "phone": "0716691454",
+    "position": "Financial Analyst",
+    "department_name": "Finance and Treasury",
+    "hire_date": "2024-12-31T22:00:00.000Z",
+    "employment_status": "active",
+    "salary": "60000.00"
+  },
+  {
+    "employee_number": "EMP-003",
+    "full_name": "John Doe",
+    "email": "johndoe@localgovt.co.zw",
+    "phone": "0780325452",
+    "position": "Youth Leader",
+    "department_name": "Education and Youth Services",
+    "hire_date": "2025-09-30T22:00:00.000Z",
+    "employment_status": "active",
+    "salary": "20000.00"
+  },
+  {
+    "employee_number": "EMP-001",
+    "full_name": "Vincent Sithole",
+    "email": "vinc@localgovt.ac.zw",
+    "phone": "0771234567",
+    "position": "Chief Information Officer",
+    "department_name": "Finance and Treasury",
+    "hire_date": "2019-07-31T22:00:00.000Z",
+    "employment_status": "active",
+    "salary": "75000.00"
+  }
+]

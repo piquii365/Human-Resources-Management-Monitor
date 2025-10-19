@@ -8,6 +8,9 @@ import fs from "fs";
 import { promises as fsp } from "fs";
 import path from "path";
 const pipelineAsync = promisify(pipeline);
+import { fileURLToPath } from "url";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function rowsToCsv(rows: any[]): string {
   if (!rows || rows.length === 0) return "";
@@ -94,6 +97,8 @@ export const getReport = async (
 
   const connection = await conn.getConnection();
   try {
+    // build absolute base URL for saved report links
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
     let rows: any[] = [];
     switch (reportName) {
       case "employee_directory":
@@ -148,7 +153,10 @@ export const getReport = async (
         const filename = `${reportName}_${Date.now()}.json`;
         const filepath = path.join(dir, filename);
         await fsp.writeFile(filepath, JSON.stringify(rows, null, 2), "utf8");
-        return res.json({ success: true, url: `/public/reports/${filename}` });
+        return res.json({
+          success: true,
+          url: `${baseUrl}/public/reports/${filename}`,
+        });
       }
       return res.json({ success: true, data: rows });
     }
@@ -161,7 +169,10 @@ export const getReport = async (
         const filename = `${reportName}_${Date.now()}.csv`;
         const filepath = path.join(dir, filename);
         await fsp.writeFile(filepath, csv, "utf8");
-        return res.json({ success: true, url: `/public/reports/${filename}` });
+        return res.json({
+          success: true,
+          url: `${baseUrl}/public/reports/${filename}`,
+        });
       }
       res.setHeader("Content-Type", "text/csv");
       res.setHeader(
@@ -179,7 +190,10 @@ export const getReport = async (
         const filename = `${reportName}_${Date.now()}.xlsx`;
         const filepath = path.join(dir, filename);
         await fsp.writeFile(filepath, buf as any);
-        return res.json({ success: true, url: `/public/reports/${filename}` });
+        return res.json({
+          success: true,
+          url: `${baseUrl}/public/reports/${filename}`,
+        });
       }
       res.setHeader(
         "Content-Type",
@@ -200,7 +214,10 @@ export const getReport = async (
         const filename = `${reportName}_${Date.now()}.pdf`;
         const filepath = path.join(dir, filename);
         await streamToFile(doc, filepath);
-        return res.json({ success: true, url: `/public/reports/${filename}` });
+        return res.json({
+          success: true,
+          url: `${baseUrl}/public/reports/${filename}`,
+        });
       }
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(

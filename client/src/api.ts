@@ -57,6 +57,14 @@ export const register = async (user: User) => {
 
 export default apiClient;
 
+// Helper to fetch typed response data. The axios interceptor returns response.data,
+// but TypeScript still types apiClient.get as AxiosResponse; this wrapper helps callers
+// request a typed payload.
+export const getData = async <T = unknown>(url: string): Promise<T> => {
+  const res = await apiClient.get(url);
+  return res as unknown as T;
+};
+
 // Departments
 export const fetchDepartments = async () => {
   try {

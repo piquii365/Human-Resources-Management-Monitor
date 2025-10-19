@@ -1,0 +1,4 @@
+employee_number,full_name,email,phone,position,department_name,hire_date,employment_status,salary
+"EMP-002","Blessing Nyakabau","bnyakabau@localgovt.co.zw","0716691454","Financial Analyst","Finance and Treasury","Wed Jan 01 2025 00:00:00 GMT+0200 (Central Africa Time)","active","60000.00"
+"EMP-003","John Doe","johndoe@localgovt.co.zw","0780325452","Youth Leader","Education and Youth Services","Wed Oct 01 2025 00:00:00 GMT+0200 (Central Africa Time)","active","20000.00"
+"EMP-001","Vincent Sithole","vinc@localgovt.ac.zw","0771234567","Chief Information Officer","Finance and Treasury","Thu Aug 01 2019 00:00:00 GMT+0200 (Central Africa Time)","active","75000.00"

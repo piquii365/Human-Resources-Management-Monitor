@@ -11,9 +11,14 @@ import {
   FileText,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { getData } from "../api";
+import apiClient from "../api";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const [role, setRole] = useState<string | null>(null);
+  const [appointUid, setAppointUid] = useState("");
+  const [appointing, setAppointing] = useState(false);
   const [loading] = useState(false);
   type DashboardStats = { [key: string]: number } | null;
   type UpcomingEvent = {
@@ -54,9 +59,12 @@ export default function Dashboard() {
         if (to) parts.push(`to=${encodeURIComponent(to)}`);
         if (user?.uid) parts.push(`employee_id=${user.uid}`);
         const q = parts.length ? `?${parts.join("&")}` : "";
-        const res = await fetch(`/api/calendar/events${q}`);
-        const j = await res.json();
-        if (j.success) setCalendarEvents(j.data || []);
+        const j = await getData<{ success: boolean; data?: UpcomingEvent[] }>(
+          `/calendar/events${q}`
+        );
+        if (j && typeof j === "object" && (j as any).success) {
+          setCalendarEvents((j as any).data || []);
+        }
       } catch (e) {
         console.error("Failed to load calendar events", e);
       }
@@ -68,26 +76,53 @@ export default function Dashboard() {
   // Dashboard calendar is read-only: keep refreshMonth for manual refresh but remove create/edit handlers
 
   useEffect(() => {
+    // fetch current user info (including role)
+    (async () => {
+      try {
+        try {
+          const j = await getData<{
+            success: boolean;
+            data?: { role?: string };
+          }>("/auth/me");
+          if (j?.success && j.data?.role) {
+            const r = j.data.role.trim().toLowerCase();
+            setRole(r);
+            // also update sessionStorage user.role for consistency
+            try {
+              const s = sessionStorage.getItem("user");
+              if (s) {
+                const parsed = JSON.parse(s) as any;
+                parsed.role = r;
+                sessionStorage.setItem("user", JSON.stringify(parsed));
+              }
+            } catch (e) {
+              console.debug("Dashboard: failed to update session user role", e);
+            }
+          }
+        } catch (err) {
+          console.debug("Failed to fetch me for dashboard", err);
+        }
+      } catch (e) {
+        console.debug("Failed to fetch me for dashboard", e);
+      }
+    })();
+
     let mounted = true;
     const todayLocal = new Date();
     (async function load() {
       try {
         const employeeQuery = user?.uid ? `?employee_id=${user.uid}` : "";
         const [sRes, uRes, nRes, tRes] = await Promise.all([
-          fetch(`/api/dashboard/stats${employeeQuery}`).then((r) => r.json()),
-          fetch(`/api/dashboard/upcoming${employeeQuery}`).then((r) =>
-            r.json()
-          ),
-          fetch(`/api/dashboard/notifications${employeeQuery}`).then((r) =>
-            r.json()
-          ),
-          fetch(`/api/dashboard/tasks${employeeQuery}`).then((r) => r.json()),
+          getData(`/dashboard/stats${employeeQuery}`),
+          getData(`/dashboard/upcoming${employeeQuery}`),
+          getData(`/dashboard/notifications${employeeQuery}`),
+          getData(`/dashboard/tasks${employeeQuery}`),
         ]);
         if (!mounted) return;
-        if (sRes?.success) setStats(sRes.data);
-        if (uRes?.success) setUpcoming(uRes.data || []);
-        if (nRes?.success) setNotifications(nRes.data || []);
-        if (tRes?.success) setTasks(tRes.data || []);
+        if ((sRes as any)?.success) setStats((sRes as any).data);
+        if ((uRes as any)?.success) setUpcoming((uRes as any).data || []);
+        if ((nRes as any)?.success) setNotifications((nRes as any).data || []);
+        if ((tRes as any)?.success) setTasks((tRes as any).data || []);
 
         // fetch calendar events for current month range
         const startOfMonth = new Date(
@@ -113,6 +148,27 @@ export default function Dashboard() {
       mounted = false;
     };
   }, [fetchCalendar, user?.uid]);
+
+  const handleAppoint = async () => {
+    if (!appointUid) return alert("Enter UID or email to appoint");
+    setAppointing(true);
+    try {
+      const j = await apiClient.post(`/dashboard/appoint-hr`, {
+        uid: appointUid,
+      });
+      if ((j as any)?.success) {
+        alert("User appointed as HR");
+        setAppointUid("");
+      } else {
+        alert((j as any)?.message || "Failed to appoint");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to appoint");
+    } finally {
+      setAppointing(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -149,6 +205,37 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+        {role === "admin" ? (
+          <div className="mt-4 p-4 bg-white/10 rounded-lg">
+            <h3 className="font-semibold">Admin actions</h3>
+            <p className="text-sm text-white/80 mb-2">Appoint a user as HR</p>
+            <div className="flex gap-2">
+              <input
+                value={appointUid}
+                onChange={(e) => setAppointUid(e.target.value)}
+                placeholder="UID or email"
+                className="px-3 py-2 rounded w-72 text-black"
+              />
+              <button
+                onClick={handleAppoint}
+                disabled={appointing}
+                className="px-4 py-2 bg-white text-[#5A5FEF] rounded"
+              >
+                {appointing ? "Appointing..." : "Appoint HR"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4 p-3 bg-white/10 rounded-lg">
+            <p className="text-sm text-white/80">
+              {user?.uid
+                ? role
+                  ? null
+                  : "Your account is pending admin approval. An administrator will approve your access shortly."
+                : null}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

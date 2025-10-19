@@ -21,3 +21,5 @@ lerna-debug.log*
 *.suo
 *.ntvs*
 *.njsproj
+
+/server/service.accounts.json

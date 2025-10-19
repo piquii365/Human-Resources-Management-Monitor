@@ -47,8 +47,12 @@ export default function Layout() {
               {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-[#4A7FA7] rounded-xl flex items-center justify-center">
-                <LayoutDashboard size={24} />
+              <div className="w-10 h-10  rounded-xl flex items-center justify-center">
+                <img
+                  src="/zim_bird.jpg"
+                  className="w-full h-auto object-center mix-blend-multiply"
+                  alt="Zim Bro"
+                />
               </div>
               <div>
                 <h1 className="text-xl font-bold">HR-MES</h1>

@@ -9,6 +9,9 @@ import evaluationsRoutes from "./evaluations.routes";
 import calendarRoutes from "./calendar.routes";
 import reportsRoutes from "./reports.routes";
 import dashboardRoutes from "./dashboard.routes";
+import adminRoutes from "./admin.routes";
+import { authenticate } from "../middleware/auth.middleware";
+import { getMe } from "../controllers/auth.controller";
 
 const router = express.Router();
 
@@ -25,5 +28,9 @@ export default (): express.Router => {
   router.use("/reports", reportsRoutes);
   // dashboard
   router.use("/dashboard", dashboardRoutes);
+  // admin routes
+  router.use("/admin", adminRoutes);
+  // get current user
+  router.get("/auth/me", authenticate, getMe);
   return router;
 };

@@ -9,247 +9,187 @@ A Web-Based Monitoring and Evaluation System for the Department of Human Resourc
 ### Frontend (Client)
 
 - **Framework**: React 19 + TypeScript
-- **Build Tool**: Vite (Rolldown)
-- **Styling**: Tailwind CSS v4
-- **Routing**: React Router v7
-- **HTTP Client**: Axios
-- **Authentication**: Firebase Auth
+# HR Monitoring and Evaluation System
 
-### Backend (Server)
+This repository contains a full-stack Human Resources Monitoring & Evaluation application used by the Department of Human Resources Management. The system centralizes employee records, performance evaluations, recruitment, training, calendar events, and reporting.
 
-- **Runtime**: Node.js 20
-- **Framework**: Express.js 5
-- **Language**: TypeScript
-- **Database**: MySQL 8
-- **Authentication**: Firebase Admin + JWT
-- **Security**: Helmet, CORS, bcrypt
+This README documents the architecture, code components, how the system works, basic user documentation, and a data-flow diagram (Mermaid) you can render on GitHub or locally.
 
-## Project Structure
+## Table of contents
 
+- Project overview
+- Architecture and components
+- How it works (request/response flows)
+- User documentation (what users see and how to act)
+- Data flows (Mermaid diagram + explanation)
+- Developer tasks: local setup and debugging tips
+- API reference (summary)
+
+---
+
+## Project overview
+
+This app is a React + TypeScript frontend and Express + TypeScript backend. The backend uses MySQL for persistent storage and stored procedures for core CRUD and reporting functionality. Firebase provides authentication (ID tokens) which the backend verifies.
+
+Key goals:
+- Centralized HR data and analytics
+- Role-based access (admin, hr, employee)
+- Calendar-driven event management (interviews, training, meetings)
+- Report generation (JSON / CSV / XLSX / PDF)
+
+## Architecture and components
+
+Top-level folders:
+
+- `client/` — React frontend (Vite)
+   - `src/components/` — Shared UI components (ProtectedRoute, Layout, Modals)
+   - `src/pages/` — Page screens (Auth, Dashboard, Calendar, Reports, AdminUsers, etc.)
+   - `src/contexts/AuthContext.tsx` — Firebase sign-in + session management and merge of DB role
+   - `src/api.ts` — Axios API client configured with BASE_URL and request/response interceptors
+
+- `server/` — Express backend
+   - `src/config/*` — DB and Firebase admin configuration
+   - `src/controllers/*` — Handlers for calendar, reports, auth, admin, employees
+   - `src/middleware/*` — Authentication & role-based authorization middlewares
+   - `src/routes/*` — Routes wiring
+   - `server/sequelize.sql` — schema with tables, views and stored procedures
+
+## How it works (key flows)
+
+1) User sign-in/registration
+- The user signs in via Firebase (client). The client gets an ID token from Firebase and stores a user object (`sessionStorage.user`) with the token.
+- The client calls server endpoints using `src/api.ts` (axios) which attaches the token to Authorization header.
+- Server middleware validates the ID token via Firebase Admin SDK and then queries the database (stored procedure `sp_get_user_role`) to obtain the authoritative role for that user.
+
+2) Role enforcement & ProtectedRoute (client)
+- The client `ProtectedRoute` first checks `sessionStorage.user.role` and if missing calls `GET /api/auth/me` (via the axios helper). The returned DB role is normalized, stored back into `sessionStorage.user.role`, and used to decide access.
+- If the role is not `admin` or `hr`, `ProtectedRoute` places an `authMessage` into sessionStorage and redirects the user to `/auth` where the message is shown. This prevents unauthorized access to the dashboard UI.
+
+3) Calendar/events
+- Client fetches calendar events via `GET /api/calendar/events?from=YYYY-MM-DD&to=YYYY-MM-DD`.
+- Create/Update/Delete operations are routed to the server which calls stored procedures (e.g., `sp_create_calendar_event`) to persist changes.
+
+4) Reports
+- Client requests a report generation endpoint. The server prepares JSON/CSV/XLSX/PDF and can optionally save files under `public/reports` and return an absolute URL.
+
+## User documentation (quick start)
+
+For normal staff (employees):
+
+- Sign in on `/auth` with your department credentials (or via Google if enabled).
+- If your account is newly registered, an administrator must approve you. You will see a pending message on the sign-in page.
+- Once approved (role = `hr` or `admin`), you can access the Dashboard, Calendar and other pages per your role.
+
+For HR staff:
+
+- Access the Dashboard to view stats and upcoming interviews/training.
+- Use the Calendar page to create/edit events (interviews, training sessions). Events map to stored procedures on the server and persist to the database.
+- Generate reports from the Reports page (choose format and optionally save files).
+
+For Admins:
+
+- Appoint HR users through the AdminUsers page.
+- Manage departments, employees and higher-level reports.
+
+## Data flow (Mermaid diagram)
+
+Below is a simplified data-flow diagram. Renderable by GitHub (Mermaid support) or tools that support Mermaid diagrams.
+
+```mermaid
+flowchart TD
+   subgraph Client
+      A[Browser / React App]
+      A -->|Sign-in via Firebase| B[Firebase Auth]
+      A -->|API requests (axios)| API[API Client]
+   end
+
+   subgraph Server
+      API --> M[Express Middleware]
+      M -->|Validate Firebase token| B
+      M -->|Get role via sp_get_user_role| DB[(MySQL)]
+      M --> Controllers[Controllers]
+      Controllers --> DB
+      Controllers --> Files[public/reports]
+   end
+
+   subgraph DB
+      DB[(MySQL + Stored Procedures)]
+   end
+
+   B -->|Authoritative ID| Server
+   Files -->|Saved report URL| A
+
+   classDef infra fill:#f7f7f9,stroke:#333,stroke-width:1px;
+   class DB,Files infra;
 ```
-├── client/                 # Frontend React application
-│   ├── src/
-│   │   ├── components/    # Reusable UI components
-│   │   ├── pages/         # Page components
-│   │   ├── config/        # Firebase and route config
-│   │   ├── contexts/      # React contexts (Auth)
-│   │   └── api.ts         # API client configuration
-│   └── package.json
-│
-├── server/                 # Backend Express application
-│   ├── src/
-│   │   ├── config/        # Database configuration
-│   │   ├── controllers/   # Route controllers
-│   │   ├── middleware/    # Auth & validation middleware
-│   │   ├── routes/        # API routes
-│   │   └── index.ts       # Server entry point
-│   ├── sequelize.sql      # Complete database schema
-│   └── package.json
-│
-└── start.sh               # Startup script for both services
-```
 
-## Authentication Flow (3-Way Firebase Auth)
+Explanation:
+- The client authenticates with Firebase and receives an ID token. The Axios client attaches this token to every API request.
+- Server middleware validates the token, then queries the database for an authoritative role (stored procedure). Controllers handle business logic and call stored procedures to read/write data.
+- If reports are saved, the server writes files to `public/reports` and returns full URLs to the client.
 
-The system implements a secure 3-way authentication flow:
+## Developer setup & debugging tips
 
-1. **Client Registration/Login** (Firebase):
-
-   - User registers/logs in through Firebase Auth
-   - Supports: Email/Password, Google OAuth
-   - Firebase returns user details and ID token
-
-2. **Server Registration**:
-
-   - Client sends Firebase user details to backend `/api/auth/register`
-   - Server stores user data in database
-   - Creates employee record linked to user account
-
-3. **Protected Routes**:
-   - Client includes Firebase ID token in request headers
-   - Server middleware validates token against Firebase
-   - Compares client-issued JWT with Firebase for verification
-   - Grants access to protected resources
-
-## Database Setup (REQUIRED)
-
-### Current Status
-
-⚠️ **Action Required**: The application requires a MySQL database to function properly.
-
-### Database Setup Steps
-
-1. **Create a MySQL 8 database** on your chosen provider
-
-2. **Run the schema**:
-
-   - Use the complete schema in `server/sequelize.sql`
-   - This includes tables, views, stored procedures, and functions
-   - Connect to your database and execute the entire SQL file
-
-3. **Update Environment Variables**:
-   Edit `server/.env` with your database credentials:
-
-   ```env
-   DB_HOST=your-database-host.com
-   DB_USER=your-database-username
-   DB_PASSWORD=your-database-password
-   DB_NAME=hr_management
-   PORT=3800
-   NODE_ENV=development
-   ```
-
-4. **Restart the application**:
-   - The workflow will automatically restart
-   - Check logs to ensure database connection is successful
-
-### Database Schema Overview
-
-The system includes:
-
-- **Core Tables**: departments, employees, performance_evaluations, recruitment, applications, training_programs, training_enrollments
-- **Views**: employees_by_department, open_recruitments, top_performers
-- **Stored Procedures**: CRUD operations for all entities
-- **Functions**: Employee name formatting, performance calculations
-
-## Core Features
-
-Based on the dissertation proposal, the system includes:
-
-### 1. Employee Management
-
-- Employee records and profiles
-- Department assignment
-- Position and salary tracking
-- Employment status monitoring
-
-### 2. Performance Evaluation
-
-- Regular performance assessments
-- Multi-criteria evaluation (technical skills, communication, teamwork, leadership, punctuality)
-- Performance score tracking
-- Goals and achievements monitoring
-
-### 3. Recruitment & Applications
-
-- Job posting management
-- Application tracking
-- Interview scheduling
-- Candidate status management
-- Hiring workflow
-
-### 4. Training & Development
-
-- Training program management
-- Employee enrollment
-- Attendance tracking
-- Certificate issuance
-- Feedback collection
-
-### 5. Reporting & Analytics
-
-- Calendar events (interviews, training)
-- Performance reports
-- Department analytics
-- Employee metrics
-
-## API Endpoints
-
-### Authentication
-
-- `POST /api/auth/register` - Register user with Firebase details
-- `POST /api/auth/login` - Login (handled by Firebase client-side)
-
-### Employees
-
-- `GET /api/employees` - List all employees
-- `GET /api/employees/:id` - Get employee details
-- `POST /api/employees` - Create employee
-- `PUT /api/employees/:id` - Update employee
-- `DELETE /api/employees/:id` - Delete employee
-
-### Departments
-
-- `GET /api/departments` - List departments
-- `POST /api/departments` - Create department
-- `PUT /api/departments/:id` - Update department
-- `DELETE /api/departments/:id` - Delete department
-
-### Recruitment
-
-- `GET /api/recruitment` - List job postings
-- `POST /api/recruitment` - Create job posting
-- `GET /api/recruitment/:id/applications` - Get applications
-- `POST /api/recruitment/:id/applications` - Submit application
-
-### Training
-
-- `GET /api/training` - List training programs
-- `GET /api/training/:id/enrollments` - Get enrollments
-
-### Calendar
-
-- `GET /api/calendar/events?from=YYYY-MM-DD&to=YYYY-MM-DD` - Get calendar events
-
-## Development
-
-### Local Development
+1) Install dependencies
 
 ```bash
-# Install dependencies
 cd client && npm install
 cd ../server && npm install
-
-# Start both services
-bash start.sh
 ```
 
-### Environment Variables
+2) Start both services (local dev)
 
-**Client**: No environment file needed (Firebase config is in code)
+```bash
+# Start the backend (in server/)
+npm run dev # or node ./dist/index.js depending on how you run it
 
-**Server** (`server/.env`):
-
-```env
-DB_HOST=your-mysql-host
-DB_USER=your-mysql-user
-DB_PASSWORD=your-mysql-password
-DB_NAME=hr_management
-PORT=3800
-NODE_ENV=development
+# Start the frontend (in client/)
+npm run dev
 ```
 
-### Ports
+3) Vite dev proxy (recommended)
 
-- **Frontend**: 5173 (default vite port)
-- **Backend**: 3800
+If you prefer to use relative `/api/*` paths from the browser, add a proxy entry to `vite.config.ts`:
 
-## Firebase Configuration
+```ts
+// vite.config.ts
+export default defineConfig({
+   // ...existing config
+   server: {
+      proxy: {
+         '/api': 'http://localhost:3800'
+      }
+   }
+})
+```
 
-The project uses Firebase for authentication. Current configuration is in `client/src/config/firebase-config.ts`:
+4) Troubleshooting `/api/auth/me` returning HTML
 
-- Project: hr-management-monitor
-- Authentication methods: Email/Password, Google OAuth
+- If you see HTML (Vite index.html) when calling `/api/auth/me`, it means dev server is handling the route. Fix by:
+   - Ensuring the backend is running and reachable at the base URL defined in `client/src/api.ts` (default: http://localhost:3800)
+   - Adding the Vite proxy above during development
+   - Ensuring the server returns JSON error objects (not HTML) on failure
 
-## User Preferences
+## API Quick Reference
 
-- **Database**: MySQL 8 (external managed instance required)
-- **Auth Flow**: Firebase 3-way authentication with server JWT validation
-- **Deployment**: Replit platform with autoscale deployment
+- `GET /api/auth/me` — Return { success: true, data: { uid, email, role } }
+- `GET /api/calendar/events?from=&to=&employee_id=&event_types=` — Returns calendar events
+- `POST /api/calendar/events` — Create event (calls stored proc)
+- `PUT /api/calendar/events/:id` — Update event
+- `DELETE /api/calendar/events/:id` — Delete event
+- `GET /api/reports/:reportName?format=pdf&save=1` — Generate report
 
-## Next Steps
+## Notes & next tasks
 
-1. ✅ Set up external MySQL database
-2. ✅ Update server/.env with database credentials
-3. ✅ Run schema from server/sequelize.sql
-4. ✅ Test authentication flow
-5. ✅ Verify all CRUD operations
-6. ✅ Configure deployment settings
+- The DB is the source of truth for roles. The client merges the DB role into session storage immediately after sign-in and on ProtectedRoute checks.
+- Consider adding server-side logging around stored procedure calls if you see inconsistent data or errors.
+- Improve accessibility and lint warnings in the client (labels, button text, inline styles flagged by linter).
 
-## Support
+---
 
-For questions about the system or implementation, refer to:
+If you'd like, I can also:
+- Add the Vite proxy automatically and run a quick smoke test of `/api/auth/me` from this environment, or
+- Generate a PNG of the Mermaid diagram and add it to the repository, or
+- Produce a short CONTRIBUTING.md with developer scripts for running both services in development.
 
-- Dissertation proposal document
-- Firebase documentation for auth setup
-- MySQL documentation for database management
+If you want any of those, tell me which and I'll implement it next.

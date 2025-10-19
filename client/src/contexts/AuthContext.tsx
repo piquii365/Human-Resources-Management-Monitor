@@ -17,6 +17,23 @@ import {
   OAuthProvider,
 } from "firebase/auth";
 import { auth } from "../config/firebase-config";
+import { register as registerDBUser } from "../api";
+import { getData } from "../api";
+
+type Role = "employee" | "admin" | "hr";
+const normalizeRole = (v: unknown): Role | undefined => {
+  if (typeof v !== "string") return undefined;
+  const lower = v.trim().toLowerCase();
+  if (lower === "admin") return "admin";
+  if (
+    lower === "hr" ||
+    lower === "human_resources" ||
+    lower === "human-resources"
+  )
+    return "hr";
+  if (lower === "employee" || lower === "user") return "employee";
+  return undefined;
+};
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
@@ -78,7 +95,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: fbUser.email || "",
           name: fbUser.displayName || "",
           displayPicture: fbUser.photoURL || undefined,
+          accessToken: await fbUser.getIdToken(),
         };
+        // merge authoritative role from DB and store
+        try {
+          const me = await getData<{
+            success: boolean;
+            data?: { role?: string };
+          }>("/auth/me");
+          const normalized = normalizeRole(me.data?.role);
+          if (me?.success && normalized) currentUser.role = normalized;
+        } catch (e) {
+          console.debug(
+            "AuthProvider: failed to fetch /auth/me on auth state change",
+            e
+          );
+        }
         sessionStorage.setItem("user", JSON.stringify(currentUser));
         dispatch({ type: "SET_USER", payload: currentUser });
       } else {
@@ -89,16 +121,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsub();
   }, []);
 
-  // const login = async (email: string, password: string) => {
-  //   dispatch({ type: "SET_LOADING", payload: true });
-
-  //   // Simulate API call
-  //   await new Promise((resolve) => setTimeout(resolve, 1500));
-
-  //   sessionStorage.setItem("user", JSON.stringify(mockUser));
-  //   dispatch({ type: "SET_USER", payload: mockUser });
-  // };
-
   const loginWithGoogle = async () => {
     dispatch({ type: "SET_LOADING", payload: true });
     try {
@@ -107,12 +129,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       provider.addScope("email");
       const result = await signInWithPopup(auth, provider);
       const fbUser = result.user;
+
       const currentUser: User = {
         uid: fbUser.uid,
         email: fbUser.email || "",
         name: fbUser.displayName || "",
+        accessToken: await fbUser.getIdToken(),
         displayPicture: fbUser.photoURL || undefined,
       };
+
+      // register user in DB (default role employee)
+      await registerDBUser({
+        uid: currentUser.uid,
+        email: currentUser.email,
+        name: currentUser.name,
+        displayPicture: currentUser.displayPicture ?? undefined,
+        role: "employee",
+      });
+
+      // fetch current user info (including role) from server
+      try {
+        const meJson = await getData<{
+          success: boolean;
+          data?: { role?: string };
+        }>("/auth/me");
+        const normalized = normalizeRole(meJson.data?.role);
+        if (meJson?.success && normalized) {
+          currentUser.role = normalized;
+        }
+      } catch (e) {
+        console.debug("Failed to fetch me after google login", e);
+      }
+
       sessionStorage.setItem("user", JSON.stringify(currentUser));
       dispatch({ type: "SET_USER", payload: currentUser });
     } catch (err) {
@@ -135,7 +183,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: fbUser.email || "",
         name: fbUser.displayName || "",
         displayPicture: fbUser.photoURL || undefined,
+        accessToken: await fbUser.getIdToken(),
       };
+
+      // try to fetch and merge DB role
+      try {
+        const meJson = await getData<{
+          success: boolean;
+          data?: { role?: string };
+        }>("/auth/me");
+        const normalized = normalizeRole(meJson.data?.role);
+        if (meJson?.success && normalized) currentUser.role = normalized;
+      } catch (e) {
+        console.debug("loginWithMicrosoft: failed to fetch /auth/me", e);
+      }
+
       sessionStorage.setItem("user", JSON.stringify(currentUser));
       dispatch({ type: "SET_USER", payload: currentUser });
     } catch (err) {
@@ -176,8 +238,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (name) {
         try {
           await updateProfile(fbUser, { displayName: name });
+          await registerDBUser({
+            uid: fbUser.uid,
+            email,
+            name,
+            displayPicture: fbUser.photoURL ?? undefined,
+          });
         } catch (e) {
-          // non-fatal
           console.warn("updateProfile failed:", e);
         }
       }
@@ -188,8 +255,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: name || fbUser.displayName || "",
         displayPicture: fbUser.photoURL || undefined,
       };
+      // After registration, fetch DB role (user may be created with default 'employee')
+      try {
+        const meJson = await getData<{
+          success: boolean;
+          data?: { role?: string };
+        }>("/auth/me");
+        const normalized = normalizeRole(meJson.data?.role);
+        if (meJson?.success && normalized) currentUser.role = normalized;
+      } catch (e) {
+        console.debug("register: failed to fetch /auth/me", e);
+      }
+
       sessionStorage.setItem("user", JSON.stringify(currentUser));
       dispatch({ type: "SET_USER", payload: currentUser });
+      // redirect to registration success page (client should handle)
+      window.location.href = "/auth/success";
     } catch (err: unknown) {
       console.error("Register error:", err);
       // Provide a clearer message when Email/Password sign-in is not enabled in Firebase

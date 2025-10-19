@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function Auth() {
-  const [isSignUp, setIsSignUp] = useState(true);
+  // default to Sign In view
+  const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
@@ -13,6 +14,7 @@ export default function Auth() {
     acceptTerms: false,
   });
   const [error, setError] = useState("");
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
 
   const extractErrorMessage = (err: unknown) => {
     if (!err) return "An error occurred";
@@ -26,6 +28,19 @@ export default function Auth() {
 
   const navigate = useNavigate();
   const { login, register, loginWithGoogle, loginWithMicrosoft } = useAuth();
+
+  // show any redirect message from ProtectedRoute (e.g., pending approval)
+  useEffect(() => {
+    try {
+      const m = sessionStorage.getItem("authMessage");
+      if (m) {
+        setAuthMessage(m);
+        sessionStorage.removeItem("authMessage");
+      }
+    } catch (e) {
+      console.debug("Auth: failed to read authMessage", e);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,6 +99,12 @@ export default function Auth() {
       <div className="w-full bg-white h-screen overflow-hidden flex flex-col md:flex-row">
         {/* Left Side - Dark Section */}
         <div className="w-full md:w-1/2 bg-gradient-to-br from-teal-700 via-teal-800 to-cyan-900 p-12 hidden md:flex flex-col justify-center items-start text-white relative overflow-hidden rounded-r-3xl">
+          {/* translucent decorative background image */}
+          <img
+            src="/coa.jpg"
+            alt="decorative"
+            className="absolute inset-0 w-full h-full object-cover opacity-10 pointer-events-none"
+          />
           {/* Decorative background pattern */}
           <div className="absolute inset-0 opacity-10">
             <div className="absolute top-20 left-10 w-40 h-40 bg-cyan-400 rounded-full blur-3xl"></div>
@@ -91,21 +112,21 @@ export default function Auth() {
           </div>
 
           <div className="relative z-10">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
-              Create your
-              <br />
-              Account
+            <h1 className="text-2xl md:text-3xl font-bold mb-4 leading-tight">
+              Department of Human Resources Management at the Ministry of Local
+              Government and Public Works.
             </h1>
-            <p className="text-lg text-teal-100 mb-8">
-              Share your artwork
-              <br />
-              and Get projects!
+            <p className="text-sm md:text-lg text-teal-100 mb-8">
+              This system centralizes HR data management, performance tracking,
+              recruitment monitoring, and training evaluation.
             </p>
           </div>
 
           {/* Decorative elements */}
           <div className="absolute bottom-20 left-10 opacity-20">
-            <div className="w-32 h-32 border-4 border-white rounded-full"></div>
+            <div className="w-32 h-32 border-4 border-white rounded-full">
+              <img src="" alt="" />
+            </div>
           </div>
         </div>
 
@@ -199,6 +220,12 @@ export default function Auth() {
                 </div>
               )}
 
+              {authMessage && (
+                <div className="text-teal-700 text-sm text-center bg-teal-50 p-3 rounded-lg">
+                  {authMessage}
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={loading}
@@ -240,7 +267,9 @@ export default function Auth() {
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                   />
                 </svg>
-                <span>Sign up with Google</span>
+                <span>
+                  {isSignUp ? "Sign up with Google" : "Sign in with Google"}
+                </span>
               </button>
               <button
                 type="button"
@@ -255,7 +284,11 @@ export default function Auth() {
                 >
                   <path d="M22 12l-10-9v7H2v4h10v7z" />
                 </svg>
-                <span>Sign up with Microsoft</span>
+                <span>
+                  {isSignUp
+                    ? "Sign up with Microsoft"
+                    : "Sign in with Microsoft"}
+                </span>
               </button>
 
               <div className="text-center mt-6">

@@ -1,5 +1,6 @@
 import { FileText, TrendingUp, Users, Award } from "lucide-react";
 import { useState } from "react";
+import { PUBLIC_URL } from "../api";
 
 const FORMAT_OPTIONS = ["pdf", "csv", "xlsx", "json"] as const;
 
@@ -9,16 +10,26 @@ function ReportTile({
   report: { name: string; description: string };
 }) {
   const [format, setFormat] = useState<(typeof FORMAT_OPTIONS)[number]>("pdf");
-  const key = reportKeyMap[report.name] || "";
+  const [generating, setGenerating] = useState(false);
+  // derive key: prefer explicit map, otherwise use a slug of the name
+  const key =
+    reportKeyMap[report.name] ||
+    report.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_|_$/g, "");
 
   const generate = async () => {
     if (!key) return alert("Report not available for generation");
+    setGenerating(true);
     try {
       const params = new URLSearchParams();
       params.set("format", format);
       params.set("save", "1");
-      const resp = await fetch(`/api/reports/${key}?${params.toString()}`);
+      const url = `${PUBLIC_URL}/api/reports/${key}?${params.toString()}`;
+      const resp = await fetch(url);
       const data = await resp.json();
+      console.debug("report generate response", data);
       if (data?.success && data?.url) {
         // open saved report
         window.open(data.url, "_blank");
@@ -30,11 +41,14 @@ function ReportTile({
         const url = URL.createObjectURL(blob);
         window.open(url, "_blank");
       } else {
-        alert("Failed to generate report");
+        const msg = data?.message || "Failed to generate report";
+        alert(msg);
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to generate report");
+      alert("Failed to generate report — check console for details");
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -62,9 +76,14 @@ function ReportTile({
         <button
           title="Generate and save report"
           onClick={generate}
-          className="px-3 py-2 bg-gradient-to-r from-[#0A1931] to-[#1A3D63] text-white rounded"
+          disabled={generating}
+          className={`px-3 py-2 text-white rounded ${
+            generating
+              ? "opacity-60 cursor-wait bg-gray-500"
+              : "bg-gradient-to-r from-[#0A1931] to-[#1A3D63]"
+          }`}
         >
-          Generate
+          {generating ? "Generating..." : "Generate"}
         </button>
       </div>
     </div>
