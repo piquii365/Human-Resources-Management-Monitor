@@ -49,13 +49,20 @@ export const authorize = (roles: Role[]) => {
     next: express.NextFunction
   ): Promise<void> => {
     const identifier = req.user?.uid || req.user?.email;
-    console.log("Authorizing user with identifier:", identifier);
-    console.log("Required roles:", roles);
-    const userRole = await getRole(identifier);
-    if (!userRole || !roles.includes(userRole)) {
+    if (!identifier) {
       res.status(403).json({ error: "Access denied" });
       return;
     }
-    next();
+
+    try {
+      const userRole = (await getRole(identifier)) as Role | undefined | null;
+      if (!userRole || !roles.includes(userRole as Role)) {
+        res.status(403).json({ error: "Access denied" });
+        return;
+      }
+      next();
+    } catch (err) {
+      res.status(500).json({ error: "Failed to determine user role" });
+    }
   };
 };

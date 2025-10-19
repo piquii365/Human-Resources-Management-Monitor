@@ -1,3 +1,4 @@
+import { authenticate } from "./../middleware/auth.middleware";
 import { register } from "../controllers/auth.controller.ts";
 import express from "express";
 import { authLimiter } from "../middleware/limit.middleware.ts";
