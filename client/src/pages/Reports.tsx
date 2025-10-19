@@ -1,4 +1,91 @@
-import { Download, FileText, TrendingUp, Users, Award } from "lucide-react";
+import { FileText, TrendingUp, Users, Award } from "lucide-react";
+import { useState } from "react";
+
+const FORMAT_OPTIONS = ["pdf", "csv", "xlsx", "json"] as const;
+
+function ReportTile({
+  report,
+}: {
+  report: { name: string; description: string };
+}) {
+  const [format, setFormat] = useState<(typeof FORMAT_OPTIONS)[number]>("pdf");
+  const key = reportKeyMap[report.name] || "";
+
+  const generate = async () => {
+    if (!key) return alert("Report not available for generation");
+    try {
+      const params = new URLSearchParams();
+      params.set("format", format);
+      params.set("save", "1");
+      const resp = await fetch(`/api/reports/${key}?${params.toString()}`);
+      const data = await resp.json();
+      if (data?.success && data?.url) {
+        // open saved report
+        window.open(data.url, "_blank");
+      } else if (data?.success && data?.data && format === "json") {
+        // if JSON and server returns inline, open in new tab
+        const blob = new Blob([JSON.stringify(data.data, null, 2)], {
+          type: "application/json",
+        });
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+      } else {
+        alert("Failed to generate report");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to generate report");
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between p-4 bg-[#F6FAFD] rounded-xl hover:bg-[#B3CFE5]/30 transition-all group">
+      <div className="flex-1">
+        <h3 className="font-medium text-[#0A1931] mb-1">{report.name}</h3>
+        <p className="text-sm text-gray-600">{report.description}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <select
+          aria-label={`format-${report.name}`}
+          value={format}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+            setFormat(e.target.value as (typeof FORMAT_OPTIONS)[number])
+          }
+          className="px-2 py-1 border rounded"
+        >
+          {FORMAT_OPTIONS.map((f) => (
+            <option key={f} value={f}>
+              {f.toUpperCase()}
+            </option>
+          ))}
+        </select>
+        <button
+          title="Generate and save report"
+          onClick={generate}
+          className="px-3 py-2 bg-gradient-to-r from-[#0A1931] to-[#1A3D63] text-white rounded"
+        >
+          Generate
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const reportKeyMap: Record<string, string> = {
+  "Employee Directory": "employee_directory",
+  "Department Distribution": "department_distribution",
+  "Employment Status": "employment_status",
+  "New Hires Report": "new_hires",
+  "Evaluation Summary": "evaluation_summary",
+  "Top Performers": "top_performers",
+  "Performance Trends": "performance_trends",
+  "Open Positions": "open_positions",
+  "Application Pipeline": "application_pipeline",
+  "Training Attendance": "training_attendance",
+  "Completion Rates": "training_completion",
+  "Training Costs": "training_costs",
+  "Skills Development": "skills_development",
+};
 
 export default function Reports() {
   const reportCategories = [
@@ -102,25 +189,7 @@ export default function Reports() {
 
               <div className="space-y-3">
                 {category.reports.map((report) => (
-                  <div
-                    key={report.name}
-                    className="flex items-center justify-between p-4 bg-[#F6FAFD] rounded-xl hover:bg-[#B3CFE5]/30 transition-all group"
-                  >
-                    <div className="flex-1">
-                      <h3 className="font-medium text-[#0A1931] mb-1">
-                        {report.name}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        {report.description}
-                      </p>
-                    </div>
-                    <button
-                      title="Download Report"
-                      className="p-2 text-[#4A7FA7] hover:bg-white rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                    >
-                      <Download size={20} />
-                    </button>
-                  </div>
+                  <ReportTile key={report.name} report={report} />
                 ))}
               </div>
             </div>

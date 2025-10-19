@@ -5,9 +5,11 @@ import Evaluations from "../pages/Evaluations";
 import Reports from "../pages/Reports";
 import Recruitment from "../pages/Recruitment";
 import Training from "../pages/Training";
+import Departments from "../pages/Departments";
 import Auth from "../pages/Auth";
 import Layout from "../components/layout/Layout";
 import ProtectedRoute from "../components/ProtectedRoute";
+import CalendarPage from "../pages/Calendar";
 
 export const router = createBrowserRouter([
   {
@@ -26,8 +28,10 @@ export const router = createBrowserRouter([
       { path: "/employees", element: <Employees /> },
       { path: "/evaluations", element: <Evaluations /> },
       { path: "/recruitment", element: <Recruitment /> },
+      { path: "/departments", element: <Departments /> },
       { path: "/training", element: <Training /> },
       { path: "/reports", element: <Reports /> },
+      { path: "/calendar", element: <CalendarPage /> },
     ],
   },
 ]);

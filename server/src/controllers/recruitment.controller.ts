@@ -46,6 +46,7 @@ export const createRecruitment = async (
   res: express.Response
 ) => {
   const payload = req.body;
+  console.log(payload);
   const connection = await conn.getConnection();
   try {
     await connection.query(
@@ -56,7 +57,7 @@ export const createRecruitment = async (
         payload.department_id,
         payload.description,
         payload.requirements,
-        payload.position_type,
+        payload.position_type || "full_time",
         payload.salary_range,
         payload.posting_date,
         payload.closing_date,

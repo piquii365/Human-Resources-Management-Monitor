@@ -43,7 +43,7 @@ export const validateLogin = [
 // Registration validation rules
 
 export const validateRegistration = [
-  body("name")
+  body("fullName")
     .isLength({ min: 2, max: 50 })
     .withMessage("Name must be between 2 and 50 characters")
     .matches(/^[a-zA-Z\s]+$/)
@@ -56,17 +56,28 @@ export const validateRegistration = [
     .normalizeEmail()
     .customSanitizer(sanitizeInput),
 
-  body("uid")
+  body("username")
     .isLength({ min: 2, max: 50 })
     .withMessage("Username must be between 2 and 50 characters")
     .matches(/^[a-zA-Z0-9_]+$/)
     .withMessage("Username can only contain letters, numbers, and underscores")
     .customSanitizer(sanitizeInput),
 
-  body("displayPicture")
-    .isURL()
-    .withMessage("Please provide a valid URL for the display picture")
+  body("password")
+    .isLength({ min: 6 })
+    .withMessage("Password must be at least 6 characters long")
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage(
+      "Password must contain at least one lowercase letter, one uppercase letter, and one number"
+    )
     .customSanitizer(sanitizeInput),
+
+  body("confirmPassword").custom((value, { req }) => {
+    if (value !== req.body.password) {
+      throw new Error("Passwords do not match");
+    }
+    return true;
+  }),
 ];
 
 // Contact form validation rules

@@ -5,10 +5,12 @@ import {
   Users,
   ClipboardCheck,
   Briefcase,
+  Archive,
   GraduationCap,
   FileText,
   Menu,
   X,
+  Calendar,
   LogOut,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
@@ -18,8 +20,10 @@ const navigation = [
   { name: "Employees", href: "/employees", icon: Users },
   { name: "Evaluations", href: "/evaluations", icon: ClipboardCheck },
   { name: "Recruitment", href: "/recruitment", icon: Briefcase },
+  { name: "Departments", href: "/departments", icon: Archive },
   { name: "Training", href: "/training", icon: GraduationCap },
   { name: "Reports", href: "/reports", icon: FileText },
+  { name: "Calendar", href: "/calendar", icon: Calendar },
 ];
 
 export default function Layout() {

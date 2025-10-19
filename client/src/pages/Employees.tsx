@@ -1,8 +1,16 @@
 import { useEffect, useState } from "react";
 import type { Employee, Department } from "../lib/types";
-import { fetchEmployees, fetchDepartments, createEmployeeApi } from "../api";
+import {
+  fetchEmployees,
+  fetchDepartments,
+  createEmployeeApi,
+  updateEmployeeApi,
+} from "../api";
 import { Plus, Search, Edit, Trash2, Mail, Phone } from "lucide-react";
-import EmployeeModal, { type EmployeeFormData } from "../components/EmployeeModal";
+import { deleteEmployeeApi } from "../api";
+import EmployeeModal, {
+  type EmployeeFormData,
+} from "../components/EmployeeModal";
 import { v4 as uuidv4 } from "uuid";
 
 export default function Employees() {
@@ -12,6 +20,14 @@ export default function Employees() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
+    null
+  );
+  const [toast, setToast] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -24,10 +40,17 @@ export default function Employees() {
         fetchDepartments(),
       ]);
 
-      if (employeesRes && employeesRes.data)
-        setEmployees(employeesRes.data as Employee[]);
-      if (departmentsRes && departmentsRes.data)
-        setDepartments(departmentsRes.data as Department[]);
+      const normalize = (r: unknown) => {
+        if (Array.isArray(r)) return r;
+        if (r && typeof r === "object") {
+          const maybe = r as unknown as { data?: unknown };
+          if (Array.isArray(maybe.data)) return maybe.data as unknown[];
+        }
+        return [] as unknown[];
+      };
+
+      setEmployees(normalize(employeesRes) as Employee[]);
+      setDepartments(normalize(departmentsRes) as Department[]);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -81,6 +104,40 @@ export default function Employees() {
 
     await createEmployeeApi(payload);
     await fetchData();
+  };
+
+  const handleEditEmployee = async (formData: EmployeeFormData) => {
+    if (!selectedEmployee) return;
+    const payload = {
+      ...selectedEmployee,
+      employee_number: formData.employee_number,
+      first_name: formData.first_name,
+      last_name: formData.last_name,
+      email: formData.email,
+      phone: formData.phone,
+      department_id: formData.department_id || null,
+      position: formData.position,
+      hire_date: formData.hire_date,
+      employment_status: formData.employment_status,
+      salary: parseFloat(formData.salary),
+    };
+
+    await updateEmployeeApi(selectedEmployee.id, payload);
+    setSelectedEmployee(null);
+    await fetchData();
+  };
+
+  const handleConfirmDelete = async (id: string) => {
+    try {
+      await deleteEmployeeApi(id);
+      setToast({ type: "success", message: "Employee deleted" });
+      await fetchData();
+    } catch (error) {
+      console.error("Error deleting employee:", error);
+      setToast({ type: "error", message: "Failed to delete employee" });
+    } finally {
+      setConfirmDeleteId(null);
+    }
   };
 
   if (loading) {
@@ -214,12 +271,17 @@ export default function Employees() {
                       <button
                         title="Edit Employee"
                         className="p-2 text-[#4A7FA7] hover:bg-[#B3CFE5]/30 rounded-lg transition-colors"
+                        onClick={() => {
+                          setSelectedEmployee(employee);
+                          setIsModalOpen(true);
+                        }}
                       >
                         <Edit size={16} />
                       </button>
                       <button
                         title="Delete Employee"
                         className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        onClick={() => setConfirmDeleteId(employee.id)}
                       >
                         <Trash2 size={16} />
                       </button>
@@ -240,10 +302,69 @@ export default function Employees() {
 
       <EmployeeModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleAddEmployee}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedEmployee(null);
+        }}
+        onSubmit={selectedEmployee ? handleEditEmployee : handleAddEmployee}
         departments={departments}
+        initialData={
+          selectedEmployee
+            ? {
+                employee_number: selectedEmployee.employee_number,
+                first_name: selectedEmployee.first_name,
+                last_name: selectedEmployee.last_name,
+                email: selectedEmployee.email,
+                phone: selectedEmployee.phone || "",
+                department_id: selectedEmployee.department_id || "",
+                position: selectedEmployee.position || "",
+                hire_date: selectedEmployee.hire_date || "",
+                employment_status: selectedEmployee.employment_status,
+                salary:
+                  selectedEmployee.salary != null
+                    ? String(selectedEmployee.salary)
+                    : "",
+              }
+            : null
+        }
       />
+      {/* Delete confirmation modal */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Confirm delete</h3>
+            <p className="mb-6">
+              Are you sure you want to delete this employee? This action cannot
+              be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                className="px-4 py-2 rounded-xl border"
+                onClick={() => setConfirmDeleteId(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 rounded-xl bg-red-500 text-white"
+                onClick={() => handleConfirmDelete(confirmDeleteId)}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div
+          className={`fixed bottom-6 right-6 p-4 rounded-xl text-white ${
+            toast.type === "success" ? "bg-green-600" : "bg-red-600"
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 }

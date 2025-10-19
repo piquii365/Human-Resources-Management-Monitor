@@ -42,6 +42,8 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(morgan("dev"));
+// Serve public files (including generated reports)
+app.use("/public", express.static(path.resolve(__dirname, "../public")));
 app.use("/api", generalLimiter, routes());
 
 const server = http.createServer(app);

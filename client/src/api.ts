@@ -116,6 +116,15 @@ export const fetchEmployees = async () => {
   }
 };
 
+export const fetchMinEmployees = async () => {
+  try {
+    return (await apiClient.get(`/min-employees`)).data;
+  } catch (error) {
+    console.error("Error fetching employees:", error);
+    throw error;
+  }
+};
+
 export const fetchEmployee = async (id: string) => {
   try {
     return await apiClient.get(`/employees/${id}`);
@@ -300,14 +309,77 @@ export const fetchTrainingEnrollments = async (programId: string) => {
   }
 };
 
-// Calendar
-export const fetchCalendarEvents = async (from?: string, to?: string) => {
+export const createTrainingEnrollment = async (
+  payload: Record<string, unknown>
+) => {
   try {
-    return await apiClient.get(
-      `/calendar/events${
-        from || to ? `?from=${from || ""}&to=${to || ""}` : ""
-      }`
+    return await apiClient.post(
+      `/training/${payload.training_program_id}/enrollments`,
+      payload
     );
+  } catch (error) {
+    console.error("Error creating training enrollment:", error);
+    throw error;
+  }
+};
+
+export const updateTrainingEnrollment = async (
+  id: string,
+  payload: Record<string, unknown>
+) => {
+  try {
+    return await apiClient.put(`/enrollments/${id}`, payload);
+  } catch (error) {
+    console.error(`Error updating training enrollment ${id}:`, error);
+    throw error;
+  }
+};
+
+export const deleteTrainingEnrollment = async (id: string) => {
+  try {
+    return await apiClient.delete(`/enrollments/${id}`);
+  } catch (error) {
+    console.error(`Error deleting training enrollment ${id}:`, error);
+    throw error;
+  }
+};
+
+export const updateTraining = async (
+  id: string,
+  payload: Record<string, unknown>
+) => {
+  try {
+    return await apiClient.put(`/training/${id}`, payload);
+  } catch (error) {
+    console.error(`Error updating training ${id}:`, error);
+    throw error;
+  }
+};
+
+export const deleteTraining = async (id: string) => {
+  try {
+    return await apiClient.delete(`/training/${id}`);
+  } catch (error) {
+    console.error(`Error deleting training ${id}:`, error);
+    throw error;
+  }
+};
+
+// Calendar
+export const fetchCalendarEvents = async (
+  from?: string,
+  to?: string,
+  employeeId?: string | null,
+  eventTypes?: string | null
+) => {
+  try {
+    const params = new URLSearchParams();
+    if (from) params.append("from", from);
+    if (to) params.append("to", to);
+    if (employeeId) params.append("employee_id", employeeId);
+    if (eventTypes) params.append("event_types", eventTypes);
+    const qs = params.toString();
+    return await apiClient.get(`/calendar/events${qs ? `?${qs}` : ""}`);
   } catch (error) {
     console.error("Error fetching calendar events:", error);
     throw error;
@@ -320,6 +392,25 @@ export const fetchEvaluations = async () => {
     return await apiClient.get(`/evaluations`);
   } catch (error) {
     console.error("Error fetching evaluations:", error);
+    throw error;
+  }
+};
+
+export const createTraining = async (payload: Record<string, unknown>) => {
+  try {
+    return await apiClient.post(`/training`, payload);
+  } catch (error) {
+    console.error("Error creating training:", error);
+    throw error;
+  }
+};
+
+// Recruitment create
+export const createRecruitment = async (payload: Record<string, unknown>) => {
+  try {
+    return await apiClient.post(`/recruitment`, payload);
+  } catch (error) {
+    console.error("Error creating recruitment:", error);
     throw error;
   }
 };

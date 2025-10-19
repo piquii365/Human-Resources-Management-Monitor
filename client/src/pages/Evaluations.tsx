@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import type { PerformanceEvaluation, Employee } from "../lib/types";
-import { fetchEvaluations, fetchEmployees } from "../api";
+import { fetchEvaluations, fetchMinEmployees } from "../api";
 import { Plus, Search, FileText, CheckCircle, Clock } from "lucide-react";
+import EvaluationModal, {
+  type EvaluationFormData,
+} from "../components/EvaluationModal";
+import { createEvaluation } from "../api";
 
 export default function Evaluations() {
   const [evaluations, setEvaluations] = useState<PerformanceEvaluation[]>([]);
@@ -9,6 +13,7 @@ export default function Evaluations() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -18,13 +23,43 @@ export default function Evaluations() {
     try {
       const [evaluationsRes, employeesRes] = await Promise.all([
         fetchEvaluations(),
-        fetchEmployees(),
+        fetchMinEmployees(),
       ]);
 
-      if (evaluationsRes && evaluationsRes.data)
-        setEvaluations(evaluationsRes.data as PerformanceEvaluation[]);
-      if (employeesRes && employeesRes.data)
-        setEmployees(employeesRes.data as Employee[]);
+      const normalize = (r: unknown) => {
+        if (Array.isArray(r)) return r;
+        if (r && typeof r === "object") {
+          const maybe = r as unknown as { data?: unknown };
+          if (Array.isArray(maybe.data)) return maybe.data as unknown[];
+        }
+        return [] as unknown[];
+      };
+
+      setEvaluations(normalize(evaluationsRes) as PerformanceEvaluation[]);
+
+      // fetchMinEmployees returns minimal employee objects like:
+      // { employee_number: 'EMP-003', full_name: 'John Doe' }
+      // Map them to Employee-like objects used across the UI.
+      const rawEmployees = normalize(employeesRes) as Array<unknown>;
+      const mapped = rawEmployees.map((item) => {
+        const maybe = item as { employee_number?: string; full_name?: string };
+        const id =
+          maybe.employee_number ??
+          (maybe as unknown as { id?: string }).id ??
+          "";
+        const full = maybe.full_name ?? "";
+        const parts = full.trim().split(/\s+/).filter(Boolean);
+        const first_name = parts.length > 0 ? parts[0] : "";
+        const last_name = parts.length > 1 ? parts.slice(1).join(" ") : "";
+        return {
+          id,
+          employee_number: id,
+          first_name,
+          last_name,
+        } as unknown as Employee;
+      });
+
+      setEmployees(mapped as Employee[]);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -99,11 +134,23 @@ export default function Evaluations() {
             Track and manage employee performance reviews
           </p>
         </div>
-        <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#0A1931] to-[#1A3D63] text-white rounded-xl hover:shadow-lg transition-all">
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#0A1931] to-[#1A3D63] text-white rounded-xl hover:shadow-lg transition-all"
+        >
           <Plus size={20} />
           New Evaluation
         </button>
       </div>
+      <EvaluationModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={async (data: EvaluationFormData) => {
+          await createEvaluation(data as unknown as Record<string, unknown>);
+          await fetchData();
+        }}
+        employees={employees}
+      />
 
       <div className="bg-white rounded-2xl p-6 shadow-lg shadow-blue-100/50">
         <div className="flex flex-col md:flex-row gap-4 mb-6">

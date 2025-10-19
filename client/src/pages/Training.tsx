@@ -9,6 +9,10 @@ import {
   MapPin,
   Users,
 } from "lucide-react";
+import TrainingModal, {
+  type TrainingFormData,
+} from "../components/TrainingModal";
+import { createTraining, updateTraining, deleteTraining } from "../api";
 
 export default function Training() {
   const [programs, setPrograms] = useState<TrainingProgram[]>([]);
@@ -16,6 +20,14 @@ export default function Training() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedProgram, setSelectedProgram] =
+    useState<TrainingProgram | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -25,7 +37,8 @@ export default function Training() {
     try {
       const [programsRes, enrollmentsRes] = await Promise.all([
         fetchTrainingPrograms(),
-        fetchTrainingEnrollments(""),
+        // fetchTrainingEnrollments("") is no longer needed for counts; keep as fallback
+        fetchTrainingEnrollments("").catch(() => ({ data: [] })),
       ]);
 
       if (programsRes && programsRes.data)
@@ -36,6 +49,17 @@ export default function Training() {
       console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteTraining = async (id: string) => {
+    try {
+      await deleteTraining(id);
+      setToast({ type: "success", message: "Training deleted" });
+      await fetchData();
+    } catch (error) {
+      console.error("Error deleting training:", error);
+      setToast({ type: "error", message: "Failed to delete training" });
     }
   };
 
@@ -93,11 +117,48 @@ export default function Training() {
             Manage employee training and development
           </p>
         </div>
-        <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#0A1931] to-[#1A3D63] text-white rounded-xl hover:shadow-lg transition-all">
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#0A1931] to-[#1A3D63] text-white rounded-xl hover:shadow-lg transition-all"
+        >
           <Plus size={20} />
           Schedule Training
         </button>
       </div>
+      <TrainingModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={async (data: TrainingFormData) => {
+          if (selectedProgram) {
+            await updateTraining(
+              selectedProgram.id,
+              data as unknown as Record<string, unknown>
+            );
+            setToast({ type: "success", message: "Training updated" });
+            setSelectedProgram(null);
+          } else {
+            await createTraining(data as unknown as Record<string, unknown>);
+            setToast({ type: "success", message: "Training created" });
+          }
+          await fetchData();
+        }}
+        initialData={
+          selectedProgram
+            ? ({
+                title: selectedProgram.title,
+                description: selectedProgram.description,
+                trainer: selectedProgram.trainer,
+                start_date: selectedProgram.start_date,
+                end_date: selectedProgram.end_date,
+                location: selectedProgram.location,
+                capacity: selectedProgram.capacity,
+                cost_per_person: selectedProgram.cost_per_person,
+                status: selectedProgram.status,
+              } as Partial<TrainingFormData>)
+            : null
+        }
+        employees={[]}
+      />
 
       <div className="bg-white rounded-2xl p-6 shadow-lg shadow-blue-100/50">
         <div className="flex flex-col md:flex-row gap-4 mb-6">
@@ -196,10 +257,33 @@ export default function Training() {
                     </span>
                   </div>
                   <div className="h-2 bg-[#B3CFE5] rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-[#0A1931] to-[#4A7FA7]"
-                      style={{ width: `${Math.min(capacityPercentage, 100)}%` }}
-                    ></div>
+                    <svg
+                      className="w-full h-full block"
+                      viewBox="0 0 100 10"
+                      preserveAspectRatio="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <defs>
+                        <linearGradient
+                          id="trainingGrad"
+                          x1="0%"
+                          y1="0%"
+                          x2="100%"
+                          y2="0%"
+                        >
+                          <stop offset="0%" stopColor="#0A1931" />
+                          <stop offset="100%" stopColor="#4A7FA7" />
+                        </linearGradient>
+                      </defs>
+                      <rect
+                        x="0"
+                        y="0"
+                        width={Math.min(capacityPercentage, 100)}
+                        height="10"
+                        fill="url(#trainingGrad)"
+                        rx="999"
+                      />
+                    </svg>
                   </div>
                 </div>
 
@@ -215,10 +299,97 @@ export default function Training() {
                     </div>
                   </div>
                 )}
+                <div className="flex gap-2 mt-4">
+                  <button
+                    className="px-3 py-2 rounded-lg bg-[#F6FAFD] text-[#0A1931]"
+                    onClick={() => {
+                      setSelectedProgram(program);
+                      setIsModalOpen(true);
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="px-3 py-2 rounded-lg bg-[#EEF7FF] text-[#0A1931]"
+                    onClick={async () => {
+                      // open enrollments modal
+                      setSelectedProgram(program);
+                      setLoading(true);
+                      try {
+                        const res: unknown = await fetchTrainingEnrollments(
+                          program.id
+                        );
+                        let data: unknown[] = [];
+                        if (Array.isArray(res)) data = res;
+                        else if (
+                          res &&
+                          typeof res === "object" &&
+                          Array.isArray((res as { data?: unknown }).data)
+                        ) {
+                          data = (res as { data?: unknown }).data as unknown[];
+                        }
+                        setEnrollments(data as TrainingEnrollment[]);
+                      } catch (err) {
+                        console.error(err);
+                        setEnrollments([]);
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  >
+                    View Enrollments
+                  </button>
+                  <button
+                    className="px-3 py-2 rounded-lg bg-red-50 text-red-600"
+                    onClick={() => setConfirmDeleteId(program.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             );
           })}
         </div>
+
+        {/* Delete confirm */}
+        {confirmDeleteId && (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md">
+              <h3 className="text-lg font-semibold mb-4">Confirm delete</h3>
+              <p className="mb-6">
+                Are you sure you want to delete this training program?
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  className="px-4 py-2 rounded-xl border"
+                  onClick={() => setConfirmDeleteId(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-4 py-2 rounded-xl bg-red-500 text-white"
+                  onClick={() => {
+                    if (confirmDeleteId) handleDeleteTraining(confirmDeleteId);
+                    setConfirmDeleteId(null);
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Toast */}
+        {toast && (
+          <div
+            className={`fixed bottom-6 right-6 p-4 rounded-xl text-white ${
+              toast.type === "success" ? "bg-green-600" : "bg-red-600"
+            }`}
+          >
+            {toast.message}
+          </div>
+        )}
 
         {filteredPrograms.length === 0 && (
           <div className="text-center py-12 text-gray-500">
@@ -226,6 +397,55 @@ export default function Training() {
           </div>
         )}
       </div>
+
+      {/* Enrollments drawer/modal */}
+      {selectedProgram && !isModalOpen && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">
+                Enrollments - {selectedProgram.title}
+              </h3>
+              <button
+                className="px-3 py-2 rounded-lg"
+                onClick={() => {
+                  setSelectedProgram(null);
+                  setEnrollments([]);
+                }}
+              >
+                Close
+              </button>
+            </div>
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                Loading...
+              </div>
+            ) : enrollments.length === 0 ? (
+              <div className="text-center py-6 text-gray-500">
+                No enrollments found for this program.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {enrollments.map((enr) => (
+                  <div key={enr.id} className="p-4 border rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium">{enr.employee_id}</div>
+                        <div className="text-sm text-gray-500">
+                          {new Date(enr.enrollment_date).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {enr.attendance_status}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

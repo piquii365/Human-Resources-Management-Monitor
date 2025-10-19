@@ -6,6 +6,10 @@ import {
   fetchAllApplications,
 } from "../api";
 import { Plus, Search, Briefcase, Calendar, Users } from "lucide-react";
+import JobPostingModal, {
+  type JobPostingFormData,
+} from "../components/JobPostingModal";
+import { createRecruitment } from "../api";
 
 export default function RecruitmentPage() {
   const [recruitments, setRecruitments] = useState<Recruitment[]>([]);
@@ -14,6 +18,7 @@ export default function RecruitmentPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -21,20 +26,57 @@ export default function RecruitmentPage() {
 
   const fetchData = async () => {
     try {
-      // Fetch recruitments, all applications and departments
-      const [recruitmentsRes, applicationsRes, departmentsRes] =
-        await Promise.all([
-          fetchRecruitments(),
-          fetchAllApplications(),
-          fetchDepartments(),
-        ]);
+      const tasks = await Promise.allSettled([
+        fetchRecruitments(),
+        fetchAllApplications(),
+        fetchDepartments(),
+      ]);
 
-      if (recruitmentsRes && recruitmentsRes.data)
-        setRecruitments(recruitmentsRes.data as Recruitment[]);
-      if (applicationsRes && applicationsRes.data)
-        setApplications(applicationsRes.data as Application[]);
-      if (departmentsRes && departmentsRes.data)
-        setDepartments(departmentsRes.data as Department[]);
+      const normalize = (r: unknown) => {
+        if (Array.isArray(r)) return r;
+        if (r && typeof r === "object") {
+          const maybe = r as { data?: unknown };
+          if (Array.isArray(maybe.data)) return maybe.data;
+        }
+        return [] as unknown[];
+      };
+
+      // tasks[0] = recruitments, [1] = applications, [2] = departments
+      if (tasks[0].status === "fulfilled")
+        setRecruitments(
+          normalize(
+            (tasks[0] as PromiseFulfilledResult<unknown>).value
+          ) as Recruitment[]
+        );
+      else
+        console.warn(
+          "Failed fetching recruitments:",
+          (tasks[0] as PromiseRejectedResult).reason
+        );
+
+      if (tasks[1].status === "fulfilled")
+        setApplications(
+          normalize(
+            (tasks[1] as PromiseFulfilledResult<unknown>).value
+          ) as Application[]
+        );
+      else
+        console.warn(
+          "Failed fetching applications:",
+          (tasks[1] as PromiseRejectedResult).reason
+        );
+
+      if (tasks[2].status === "fulfilled")
+        setDepartments(
+          normalize(
+            (tasks[2] as PromiseFulfilledResult<unknown>).value
+          ) as Department[]
+        );
+      else
+        console.warn(
+          "Failed fetching departments:",
+          (tasks[2] as PromiseRejectedResult).reason
+        );
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -98,11 +140,23 @@ export default function RecruitmentPage() {
             Manage job postings and applications
           </p>
         </div>
-        <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#0A1931] to-[#1A3D63] text-white rounded-xl hover:shadow-lg transition-all">
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#0A1931] to-[#1A3D63] text-white rounded-xl hover:shadow-lg transition-all"
+        >
           <Plus size={20} />
           Post Job Opening
         </button>
       </div>
+      <JobPostingModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={async (data: JobPostingFormData) => {
+          await createRecruitment(data as unknown as Record<string, unknown>);
+          await fetchData();
+        }}
+        departments={departments}
+      />
 
       <div className="bg-white rounded-2xl p-6 shadow-lg shadow-blue-100/50">
         <div className="flex flex-col md:flex-row gap-4 mb-6">
